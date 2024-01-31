@@ -92,5 +92,3 @@ if __name__ == '__main__':
     with open(output_file_path, 'w', encoding='GBK') as output_file:
         json.dump(new_result, output_file, ensure_ascii=False, indent=2)
 
-    with open(output_file_path, 'w', encoding='GBK') as output_file:
-        json.dump(result, output_file, ensure_ascii=False, indent=2)
