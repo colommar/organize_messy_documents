@@ -1,6 +1,6 @@
 import json
 from typing import Generator
-
+import re
 
 def read_and_sep(fp: str) -> Generator[list[str], None, None]:
     """
@@ -12,7 +12,7 @@ def read_and_sep(fp: str) -> Generator[list[str], None, None]:
     """
     item = []  # 用于存储当前项目的内容
     is_project = False  # 表示当前是否为项目内容
-    with open(fp, encoding='utf-8') as f:
+    with open(fp, encoding='GBK') as f:
         for line in f:
             line = line.strip()
             if is_project:
@@ -27,48 +27,70 @@ def read_and_sep(fp: str) -> Generator[list[str], None, None]:
 
 
 def extract_info(text: list[str]) -> dict[str, str]:
-    """
-    从项目内容中提取信息。
-    :param text: 项目内容
-    :return: 项目信息
-    """
-
-    def match_pattern(txt: str) -> str | None:
-        """
-        判断txt是否符合键值对的格式。
-        :param txt: 项目内容中的一行
-        :return: 若符合则返回None，否则返回txt.strip()
-        """
+    def match_pattern(txt: str) -> tuple[str, str | None]:
         for s in ("\t", "：", ":"):
             separated = txt.split(s)
             if len(separated) == 2:
                 key = separated[0].strip()
                 value = separated[1].strip()
-                if value != "":
-                    info[key] = value
-                    return None
-        return txt.strip()
+                return key, value
+        return txt.strip(), None
 
-    info = {}  # 用于存储项目信息
-    multiline_key = None  # 用于存储当前正在处理的多行键
+    def get_unique_key(base_key: str) -> str:
+        suffix = 1
+        new_key = f"{base_key}_{suffix}"
+        while new_key in info:
+            suffix += 1
+            new_key = f"{base_key}_{suffix}"
+        return new_key
+
+    info = {}
+    multiline_key = None
     for line in text:
-        if line.strip() == "":
+        line = line.strip()
+        if line == "":
             continue
-        if multiline_key is None:
-            multiline_key = match_pattern(line)
-            if multiline_key is not None:
-                info[multiline_key] = ""
-        else:
-            if (extra_value := match_pattern(line)) is None:
-                multiline_key = None
+        key, value = match_pattern(line)
+        if multiline_key is not None:
+            if key == multiline_key and value is None:
+                continue
             else:
-                info[multiline_key] += extra_value
+                multiline_key = None
+
+        if value is not None:
+            if key in info:
+                key = get_unique_key(key)
+            info[key] = value
+        else:
+            multiline_key = key
+            if multiline_key in info:
+                multiline_key = get_unique_key(multiline_key)
+            info[multiline_key] = ""
+
     return info
 
 
+
+
 if __name__ == '__main__':
-    input_file_path = 'path/to/input.txt'
-    output_file_path = 'path/to/output.json'
+    input_file_path = 'C:\\Users\\114514\\PycharmProjects\\pythonProject3\\1.txt'
+    output_file_path = 'C:\\Users\\114514\\PycharmProjects\\pythonProject3\\output.json'
     result = list(map(extract_info, read_and_sep(input_file_path)))
-    with open(output_file_path, 'w', encoding='utf-8') as output_file:
+
+    new_result = []
+    for project in result:
+        new_project = {}
+        for key, value in project.items():
+            new_project[key] = value
+            if key == "ProjectMaterial":
+                for term in ["甲方", "设计", "承建商"]:
+                    if value.endswith(term):
+                        new_project[key] = value[:-len(term)].strip()
+                        new_project[term] = ""
+        new_result.append(new_project)
+
+    with open(output_file_path, 'w', encoding='GBK') as output_file:
+        json.dump(new_result, output_file, ensure_ascii=False, indent=2)
+
+    with open(output_file_path, 'w', encoding='GBK') as output_file:
         json.dump(result, output_file, ensure_ascii=False, indent=2)
